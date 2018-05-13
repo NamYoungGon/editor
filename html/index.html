@@ -5,15 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>Editor</title>
+  <link href="./../styles/reset.css" rel="stylesheet" type="text/css" />
+  <link href="./../styles/editor.css" rel="stylesheet" type="text/css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
 </head>
 <body>
   <div>
-    <button id="b">B</button>
-    <button id="h2">H2</button>
+    <button id="b">두껍게</button>
+    <button id="h2">제목</button>
+    <button id="h3">중제목</button>
+    <button id="h4">소제목</button>
+    <button id="pre">코드</button>
   </div>
-  <div id="edit-field" contentEditable>
-    <p><br/></p>
+  <div id="edit-field" contentEditable><p><br/></p>
   </div>
   <script src="./../script/editor.js" />
 </body>
