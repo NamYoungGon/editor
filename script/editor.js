@@ -124,7 +124,7 @@ function getSurroundTargets(tagName) {
   let surround = []
   let surroundRange = false
   let unSurround = []
-  let extractChildNodes = null
+  let cloneChildNodes = null
 
   const _getSurroundTarget = (childNodes, tagName) => {
     let childNodesLen = childNodes.length
@@ -149,8 +149,8 @@ function getSurroundTargets(tagName) {
       surroundRange = true
     } 
   } else {
-    let { childNodes } = range.extractContents()
-    extractChildNodes = childNodes
+    let { childNodes } = range.cloneContents()
+    cloneChildNodes = childNodes
     _getSurroundTarget(childNodes, tagName)
   }
 
@@ -159,7 +159,7 @@ function getSurroundTargets(tagName) {
     surroundRange,
     unSurround,
     caretInfo,
-    extractChildNodes
+    cloneChildNodes
   }
 }
 
@@ -177,6 +177,7 @@ function _surround(tagName) {
     selection,
     range,
     anchorOffset,
+    anchorNode,
     elementWithAnchorNode,
     elementWithFocusNode
   } = surroundTargets.caretInfo
@@ -196,11 +197,29 @@ function _surround(tagName) {
         newRange.surroundContents(document.createElement(tagName))
       })
 
-      $(elementWithAnchorNode).after(surroundTargets.extractChildNodes)
+      range.extractContents()
+      $(elementWithAnchorNode).after(surroundTargets.cloneChildNodes)
     }
   }
   // 이미 감싸져 있는 경우 UnSurround
   else {
+    const {
+      startContainer,
+      endContainer
+    } = range
+    
+    if (elementWithAnchorNode === elementWithFocusNode) {
+      const startContainerParentNode = startContainer.parentNode
+
+      range.surroundContents(document.createElement('span'))
+      let parentNodeOuterHTML = startContainerParentNode.outerHTML
+      parentNodeOuterHTML = parentNodeOuterHTML.replace('<span>', `</${tagName}>`)
+      parentNodeOuterHTML = parentNodeOuterHTML.replace('</span>', `<${tagName}>`)
+      startContainerParentNode.outerHTML = parentNodeOuterHTML
+    } else {
+      
+      console.log('11111')
+    }
     unSurroundContents(tagName)
   }
 }
