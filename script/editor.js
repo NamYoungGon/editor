@@ -345,20 +345,41 @@
           startContainer,
           endContainer
         } = range
+
+        let lowerTagName = tagName.toLowerCase()
         
         if (elementWithAnchorNode === elementWithFocusNode) {
           const startContainerParentNode = startContainer.parentNode
 
           range.surroundContents(document.createElement('span'))
           let parentNodeOuterHTML = startContainerParentNode.outerHTML
-          parentNodeOuterHTML = parentNodeOuterHTML.replace('<span>', `</${tagName}>`)
-          parentNodeOuterHTML = parentNodeOuterHTML.replace('</span>', `<${tagName}>`)
+          parentNodeOuterHTML = parentNodeOuterHTML.replace('<span>', `</${lowerTagName}>`)
+          parentNodeOuterHTML = parentNodeOuterHTML.replace('</span>', `<${lowerTagName}>`)
           startContainerParentNode.outerHTML = parentNodeOuterHTML
         } else {
+          let childNodesHTML = ''
+          surroundTargets.cloneChildNodes.forEach((node, i) => {
+            let nodeOuterHTML = node.outerHTML
+            nodeOuterHTML = nodeOuterHTML.replace(`<${lowerTagName}>`, '')
+            nodeOuterHTML = nodeOuterHTML.replace(`</${lowerTagName}>`, '')
+
+            childNodesHTML += nodeOuterHTML
+          })
+
+          let tmpSpan = document.createElement('span')
+          range.extractContents()
+
+          tmpSpan.innerHTML = childNodesHTML
           
-          console.log('11111')
+          range.insertNode(tmpSpan)
+
+          let tmpSpanOuterHTML = tmpSpan.outerHTML
+          tmpSpanOuterHTML = tmpSpanOuterHTML.replace('<span>', '')
+          tmpSpanOuterHTML = tmpSpanOuterHTML.replace('</span>', '')
+          tmpSpan.outerHTML = tmpSpanOuterHTML
+
+          this._unSurroundContents(tagName)
         }
-        this._unSurroundContents(tagName)
       }
     }
 
