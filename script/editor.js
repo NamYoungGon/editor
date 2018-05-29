@@ -1,4 +1,133 @@
 (function (window, $) {
+  /**
+   *  라인의 endNode, endOffset 정보를 반환
+   */
+  function _getEndObjFn(lineElement, editField) {
+    let endNode
+    let endOffset
+    let lineChildWithEndNode
+    let { childNodes } = lineElement
+
+    const _textChild = (childNodes) => {
+      const childNodesLen = childNodes.length
+
+      for (let i = childNodesLen - 1; i >= 0; i--) {
+        let childNode = childNodes[i]
+
+        if (childNode.tagName === undefined && childNode.textContent !== '') {
+          endNode = childNode
+          endOffset = childNode.textContent.length
+          return true
+        } else {
+          let result = _textChild(childNode.childNodes)
+          if (result === true)
+            break
+        }
+      }
+    }
+
+    _textChild(childNodes)
+
+    lineChildWithEndNode = endNode
+    tmpParentElement = endNode
+    for (;;) {
+      if (tmpParentElement.parentNode === editField) {
+        break
+      }
+
+      lineChildWithEndNode = tmpParentElement
+      tmpParentElement = tmpParentElement.parentNode
+    }
+
+    return {
+      endNode,
+      endOffset,
+      lineChildWithEndNode
+    }
+  }
+
+  /**
+   *  라인의 startNode, startOffset 정보를 반환
+   */
+  function _getStartObjFn(lineElement, editField) {
+    let startNode
+    let lineChildWithStartNode
+    let { childNodes } = lineElement
+
+    const _textChildFn = (childNodes) => {
+      const childNodesLen = childNodes.length
+
+      for (let i = 0; i < childNodesLen; i++) {
+        let childNode = childNodes[i]
+    
+        if (childNode.tagName === undefined && childNode.textContent !== '') {
+          startNode = childNode
+          return true
+        } else {
+          let result = _textChildFn(childNode.childNodes)
+          if (result === true)
+            break
+        }
+      }
+    }
+
+    _textChildFn(childNodes)
+
+    lineChildWithStartNode = startNode
+    tmpParentElement = startNode
+    for (;;) {
+      if (tmpParentElement.parentNode === editField) {
+        break
+      }
+
+      lineChildWithStartNode = tmpParentElement
+      tmpParentElement = tmpParentElement.parentNode
+    }
+
+    return {
+      startNode,
+      startOffset: 0,
+      lineChildWithStartNode
+    }
+  }
+
+  /**
+   *  해당 객체를 가지고 있는 라인을 반환
+   */
+  function _getLineWithNodeFn(node, editField) {
+    let tmpParentElement = node
+    let lineWithStartNode = null
+    for (;;) {
+      if (tmpParentElement.parentNode === editField) {
+        lineWithStartNode = tmpParentElement
+        break
+      }
+
+      tmpParentElement = tmpParentElement.parentNode
+    }
+
+    return lineWithStartNode
+  }
+
+  /**
+   *  해당 객체를 가지고 있는 라인의 자식을 반환
+   */
+  function _getLineChildWithNodeFn(node, editField) {
+    let tmpParentElement = node
+    let lineChildWithStartNode = null
+    for (;;) {
+      if (tmpParentElement.parentNode === editField) {
+        lineWithStartNode = tmpParentElement
+        break
+      }
+
+      lineChildWithStartNode = tmpParentElement
+      tmpParentElement = tmpParentElement.parentNode
+    }
+
+    return lineChildWithStartNode
+  }
+  
   function createCaretPlacer(atStart) {
     return function (el) {
       el.focus();
@@ -60,13 +189,14 @@
       function enterKey(e) {
         if (e.which !== 13 || e.shiftKey) return true
 
-        const caretInfo = this._getCaretInfo()
-        const {
-          type,
-          isLast,
-          range,
-          lineElement
-        } = caretInfo
+        const selectionInfo = this._getSelectionInfo()
+        // const {
+        //   type,
+        //   isLast,
+        //   range,
+        //   lineElement
+        // } = selectionInfo
+        const isLast = selectionInfo[0].isLast
         if (!isLast) return true
 
         if (type === 'Range' && isLast) {
@@ -153,144 +283,190 @@
       }
     },
 
-    _getCaretInfo: function () {
+    _getSelectionInfo: function () {
       const selection = document.getSelection()
       const range = selection.getRangeAt(0)
-      const rangeString = selection.toString()
-      const {
-        type, // Caret, Range
+      const rangeStringSplit = selection.toString().split('\n').filter((d) => d !== '')
+      const rangeStringSplitLen = rangeStringSplit.length
+      let {
         anchorNode, // 시작 노드
         anchorOffset, // 시작 점
         focusNode, // 끝 노드
         focusOffset // 끝 점
       } = selection
+      let startNode = anchorNode
+      let startOffset = anchorOffset
+      let endNode = focusNode
+      let endOffset = focusOffset
 
-      const {
-        editField
-      } = this.el;
+      const editField = document.getElementById('edit-field');
 
-      let lineElement = null // 라인 DOM
-      let elementWithAnchorNode = anchorNode // 라인 DOM 바로 하위 자식(출발을 포함한)
-      let tmpParentElement = anchorNode
-      for (;;) {
-        if (tmpParentElement.parentNode === editField) {
-          lineElement = tmpParentElement
-          break
+      let lines = [] // 라인 Object
+      let lineWithStartNode = null
+      let lineWithEndNode = null
+      let lineWithStartNodeIndex = -1
+      let lineWithEndNodeIndex = -1
+
+      lineWithStartNode = _getLineWithNodeFn(startNode, editField)
+      lineWithEndNode = _getLineWithNodeFn(endNode, editField)
+
+      let editFieldChildren = Array.from(editField.children)
+      lineWithStartNodeIndex = editFieldChildren.findIndex((child) => child === lineWithStartNode)
+      lineWithEndNodeIndex = editFieldChildren.findIndex((child) => child === lineWithEndNode)
+
+      if (lineWithEndNodeIndex < lineWithStartNodeIndex) {
+        let tmp = null; 
+        tmp = lineWithStartNode; lineWithStartNode = lineWithEndNode; lineWithEndNode = tmp
+        tmp = lineWithStartNodeIndex; lineWithStartNodeIndex = lineWithEndNodeIndex; lineWithEndNodeIndex = tmp
+        tmp = startNode; startNode = endNode; endNode = tmp
+        tmp = startOffset; startOffset = endOffset; endOffset = tmp;
+      }
+
+      let initStartNode = startNode
+      let initStartOffset = startOffset
+      let initEndNode = endNode
+      let initEndOffset = endOffset
+
+      let lineChildWithStartNode = null // 라인 DOM 바로 하위 자식(출발을 포함한)
+      let lineChildWithEndNode = null // 라인 DOM 바로 하위 자식(끝을 포함한)
+
+      let lineElement
+      let type
+      let rangeString
+      let isLast
+      let lineObj
+      for (let i = 0; i < rangeStringSplitLen; i++) {
+        rangeString = rangeStringSplit[i]
+
+        // 한줄일 경우
+        if (rangeStringSplitLen - 1 === 0) {
+          lineElement = lineWithStartNode
+          type = selection.type
+
+          lineChildWithStartNode = _getLineChildWithNodeFn(startNode, editField)
+          lineChildWithEndNode = _getLineChildWithNodeFn(endNode, editField)
+        } 
+        // Range 가 다수의 줄로 구성되어 있을 경우
+        else {
+          isLast = false
+          type = 'Range'
+
+          // 첫 번째 줄일 경우
+          if (i === 0) {
+            lineElement = lineWithStartNode
+
+            let endObj = _getEndObjFn(lineElement, editField)
+            endNode = endObj.endNode
+            endOffset = endObj.endOffset
+            lineChildWithEndNode = endObj.lineChildWithEndNode
+            lineChildWithStartNode = _getLineChildWithNodeFn(startNode, editField)
+          }
+          // 마지막 줄일 경우
+          else if (i === rangeStringSplitLen - 1) {
+            lineElement = lineWithEndNode
+
+            let startObj = _getStartObjFn(lineElement, editField)
+            startNode = startObj.startNode
+            startOffset = startObj.startOffset
+            lineChildWithStartNode = startObj.lineChildWithStartNode
+            endNode = initEndNode
+            endOffset = initEndOffset
+            lineChildWithEndNode = _getLineChildWithNodeFn(endNode, editField)
+          } 
+          // 중간 줄일 경우
+          else {
+            lineElement = lineElement.nextElementSibling
+
+            let startObj = _getStartObjFn(lineElement, editField)
+            startNode = startObj.startNode
+            startOffset = startObj.startOffset
+            lineChildWithStartNode = startObj.lineChildWithStartNode
+
+            let endObj = _getEndObjFn(lineElement, editField)
+            endNode = endObj.endNode
+            endOffset = endObj.endOffset
+            lineChildWithEndNode = endObj.lineChildWithEndNode
+          }
         }
 
-        elementWithAnchorNode = tmpParentElement
-        tmpParentElement = tmpParentElement.parentNode
+        lines.push({
+          lineElement,
+          type,
+          rangeString,
+          isLast,
+
+          startNode,
+          startOffset,
+          lineChildWithStartNode,
+          endNode,
+          endOffset,
+          lineChildWithEndNode
+        })
       }
 
-      let elementWithFocusNode = focusNode // 라인 DOM 바로 하위 자식(끝을 포함한)
-      tmpParentElement = focusNode
-      for (;;) {
-        if (tmpParentElement.parentNode === editField) {
-          break
-        }
-
-        elementWithFocusNode = tmpParentElement
-        tmpParentElement = tmpParentElement.parentNode
-      }
-
-      let prevElement = elementWithAnchorNode
-      let startCaret = anchorOffset
-      for (;;) {
-        if (prevElement.previousSibling === null)
-          break
-
-        prevElement = prevElement.previousSibling
-        startCaret += prevElement.textContent.length
-      }
-
-      prevElement = elementWithFocusNode
-      let endCaret = focusOffset
-      for (;;) {
-        if (prevElement.previousSibling === null)
-          break
-
-        prevElement = prevElement.previousSibling
-        endCaret += prevElement.textContent.length
-      }
-
-      let tmp = startCaret
-      startCaret = startCaret > endCaret ? endCaret : startCaret
-      endCaret = tmp > endCaret ? tmp : endCaret
-
-      let result = {
-        type,
-        range,
-        selection,
-        anchorNode,
-        anchorOffset,
-        elementWithAnchorNode,
-        focusOffset,
-        elementWithFocusNode,
-        startCaret,
-        endCaret,
-        rangeString,
-        lineElement,
-        isLast: lineElement.textContent.length === (startCaret > endCaret ? startCaret : endCaret),
-        lineTextLength: lineElement.textContent.length
-      }
-
-      return result
+      return lines
     },
 
     _getSurroundTargets(tagName) {
-      const caretInfo = this._getCaretInfo()
-      const {
-        selection,
-        range,
-        anchorOffset,
-        elementWithAnchorNode,
-        elementWithFocusNode
-      } = caretInfo
-      const {
-        startContainer,
-        endContainer
-      } = range
+      const selectionInfo = this._getSelectionInfo()
+      const result = []
+ 
+      selectionInfo.forEach((info, i) => {
+        const {
+          lineElement,
+          type,
+          rangeString,
+          isLast,
+          startNode,
+          startOffset,
+          lineChildWithStartNode,
+          endNode,
+          endOffset,
+          lineChildWithEndNode
+        } = info
 
-      let surround = []
-      let surroundRange = false
-      let unSurround = []
-      let cloneChildNodes = null
-
-      const _getSurroundTarget = (childNodes, tagName) => {
-        let childNodesLen = childNodes.length
-      
-        for (let i = 0; i < childNodesLen; i++) {
-          let childNode = childNodes[i]
-      
-          if (childNode.tagName === undefined) {
-            surround.push(childNode)
-          } else {
-            if (childNode.tagName === tagName) {
-              continue
+        let surround = []
+        let surroundRange = false
+        let unSurround = []
+        let cloneChildNodes = null
+        const _getSurroundTarget = (childNodes, tagName) => {
+          let childNodesLen = childNodes.length
+        
+          for (let i = 0; i < childNodesLen; i++) {
+            let childNode = childNodes[i]
+        
+            if (childNode.tagName === undefined) {
+              surround.push(childNode)
+            } else {
+              if (childNode.tagName === tagName) {
+                continue
+              }
+        
+              _getSurroundTarget(childNode.childNodes, tagName)
             }
-      
-            _getSurroundTarget(childNode.childNodes, tagName)
           }
         }
-      }
 
-      if (startContainer === endContainer) {
-        if (elementWithAnchorNode.tagName !== tagName) {
-          surroundRange = true
-        } 
-      } else {
-        let { childNodes } = range.cloneContents()
-        cloneChildNodes = childNodes
-        _getSurroundTarget(childNodes, tagName)
-      }
+        if (startNode === endNode) {
+          if (lineChildWithStartNode.tagName !== tagName) {
+            surroundRange = true
+          } 
+        } else {
+          let { childNodes } = range.cloneContents()
+          cloneChildNodes = childNodes
+          _getSurroundTarget(childNodes, tagName)
+        }
 
-      return {
-        surround,
-        surroundRange,
-        unSurround,
-        caretInfo,
-        cloneChildNodes
-      }
+        result.push({
+          surround,
+          surroundRange,
+          unSurround,
+          info,
+          cloneChildNodes
+        })
+      })
+
+      return result
     },
 
     _unSurroundContents: function (tagName) {
@@ -311,79 +487,89 @@
         
       let isSurrounded = false
       let surroundTargets = this._getSurroundTargets(tagName)
-      const {
-        selection,
-        range,
-        anchorOffset,
-        anchorNode,
-        elementWithAnchorNode,
-        elementWithFocusNode
-      } = surroundTargets.caretInfo
 
-      isSurrounded = (surroundTargets.surroundRange || surroundTargets.surround.length > 0) ? false : true
-
-      console.log(`isSurrounded : ${isSurrounded}`)
-
-      // 1개라도 감싸지지 않은 것이 있을 경우 Surround
-      if (!isSurrounded) {
-        if (surroundTargets.surroundRange === true) {
-          range.surroundContents(document.createElement(tagName))
-        } else {
-          surroundTargets.surround.forEach((node, i) => {
-            let newRange = document.createRange()
-            newRange.selectNode(node)
-            newRange.surroundContents(document.createElement(tagName))
-          })
-
-          range.extractContents()
-          $(elementWithAnchorNode).after(surroundTargets.cloneChildNodes)
-        }
-      }
-      // 이미 감싸져 있는 경우 UnSurround
-      else {
+      surroundTargets.forEach((surroundTarget) => {
         const {
-          startContainer,
-          endContainer
-        } = range
+          startOffset,
+          startNode,
+          endNode,
+          endOffset,
+          lineChildWithStartNode,
+          lineChildWithEndNode
+        } = surroundTarget.info
 
-        let lowerTagName = tagName.toLowerCase()
-        
-        if (elementWithAnchorNode === elementWithFocusNode) {
-          const startContainerParentNode = startContainer.parentNode
+        isSurrounded = (surroundTarget.surroundRange || surroundTarget.surround.length > 0) ? false : true
 
-          range.surroundContents(document.createElement('span'))
-          let parentNodeOuterHTML = startContainerParentNode.outerHTML
-          parentNodeOuterHTML = parentNodeOuterHTML.replace('<span>', `</${lowerTagName}>`)
-          parentNodeOuterHTML = parentNodeOuterHTML.replace('</span>', `<${lowerTagName}>`)
-          startContainerParentNode.outerHTML = parentNodeOuterHTML
-        } else {
-          let childNodesHTML = ''
-          surroundTargets.cloneChildNodes.forEach((node, i) => {
-            let nodeOuterHTML = node.outerHTML
-            nodeOuterHTML = nodeOuterHTML.replace(`<${lowerTagName}>`, '')
-            nodeOuterHTML = nodeOuterHTML.replace(`</${lowerTagName}>`, '')
+        console.log(`isSurrounded : ${isSurrounded}`)
 
-            childNodesHTML += nodeOuterHTML
-          })
+        // 1개라도 감싸지지 않은 것이 있을 경우 Surround
+        if (!isSurrounded) {
+          if (surroundTarget.surroundRange === true) {
+            let newRange = document.createRange()
+            newRange.setStart(startNode, startOffset)
+            newRange.setEnd(endNode, endOffset)
+            newRange.surroundContents(document.createElement(tagName))
+          } else {
+            surroundTarget.surround.forEach((node, i) => {
+              let newRange = document.createRange()
+              newRange.selectNode(node)
+              newRange.surroundContents(document.createElement(tagName))
+            })
 
-          let tmpSpan = document.createElement('span')
-          range.extractContents()
-
-          tmpSpan.innerHTML = childNodesHTML
-          
-          range.insertNode(tmpSpan)
-
-          let tmpSpanOuterHTML = tmpSpan.outerHTML
-          tmpSpanOuterHTML = tmpSpanOuterHTML.replace('<span>', '')
-          tmpSpanOuterHTML = tmpSpanOuterHTML.replace('</span>', '')
-          tmpSpan.outerHTML = tmpSpanOuterHTML
-
-          this._unSurroundContents(tagName)
+            range.extractContents()
+            $(lineChildWithStartNode).after(surroundTarget.cloneChildNodes)
+          }
         }
-      }
+      })
+
+      // debugger;
+
+      return ;
+
+
+      // 이미 감싸져 있는 경우 UnSurround
+      // else {
+      //   const {
+      //     startContainer,
+      //     endContainer
+      //   } = range
+
+      //   let lowerTagName = tagName.toLowerCase()
+        
+      //   if (elementWithAnchorNode === elementWithFocusNode) {
+      //     const startContainerParentNode = startContainer.parentNode
+
+      //     range.surroundContents(document.createElement('span'))
+      //     let parentNodeOuterHTML = startContainerParentNode.outerHTML
+      //     parentNodeOuterHTML = parentNodeOuterHTML.replace('<span>', `</${lowerTagName}>`)
+      //     parentNodeOuterHTML = parentNodeOuterHTML.replace('</span>', `<${lowerTagName}>`)
+      //     startContainerParentNode.outerHTML = parentNodeOuterHTML
+      //   } else {
+      //     let childNodesHTML = ''
+      //     surroundTargets.cloneChildNodes.forEach((node, i) => {
+      //       let nodeOuterHTML = node.outerHTML
+      //       nodeOuterHTML = nodeOuterHTML.replace(`<${lowerTagName}>`, '')
+      //       nodeOuterHTML = nodeOuterHTML.replace(`</${lowerTagName}>`, '')
+
+      //       childNodesHTML += nodeOuterHTML
+      //     })
+
+      //     let tmpSpan = document.createElement('span')
+      //     range.extractContents()
+
+      //     tmpSpan.innerHTML = childNodesHTML
+          
+      //     range.insertNode(tmpSpan)
+
+      //     let tmpSpanOuterHTML = tmpSpan.outerHTML
+      //     tmpSpanOuterHTML = tmpSpanOuterHTML.replace('<span>', '')
+      //     tmpSpanOuterHTML = tmpSpanOuterHTML.replace('</span>', '')
+      //     tmpSpan.outerHTML = tmpSpanOuterHTML
+
+      //     this._unSurroundContents(tagName)
+      //   }
+      // }
     }
-
-
   };
 
   window.Editor = Editor;

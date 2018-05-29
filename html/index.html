@@ -24,15 +24,12 @@
   <script>
     var editor = new Editor('#editor');
 
-
     function test() {
       const selection = document.getSelection()
       const range = selection.getRangeAt(0)
-      const rangeString = selection.toString()
-      const rangeStringSplit = rangeString.split('\n').filter((d) => d !== '')
+      const rangeStringSplit = selection.toString().split('\n').filter((d) => d !== '')
       const rangeStringSplitLen = rangeStringSplit.length
       let {
-        type, // Caret, Range
         anchorNode, // 시작 노드
         anchorOffset, // 시작 점
         focusNode, // 끝 노드
@@ -45,207 +42,95 @@
 
       const editField = document.getElementById('edit-field');
 
-      let lineArr = [] // 라인 Object
+      let lines = [] // 라인 Object
       let lineWithStartNode = null
       let lineWithEndNode = null
       let lineWithStartNodeIndex = -1
       let lineWithEndNodeIndex = -1
 
-      const getLineWithNodeFn = (node) => {
-        let tmpParentElement = node
-        let lineWithNode = null
-        for (;;) {
-          if (tmpParentElement.parentNode === editField) {
-            lineWithNode = tmpParentElement
-            break
-          }
-
-          tmpParentElement = tmpParentElement.parentNode
-        }
-
-        return lineWithNode
-      }
-
-      lineWithStartNode = getLineWithNodeFn(startNode)
-      lineWithEndNode = getLineWithNodeFn(endNode)
+      lineWithStartNode = _getLineWithNodeFn(startNode, editField)
+      lineWithEndNode = _getLineWithNodeFn(endNode, editField)
 
       let editFieldChildren = Array.from(editField.children)
       lineWithStartNodeIndex = editFieldChildren.findIndex((child) => child === lineWithStartNode)
       lineWithEndNodeIndex = editFieldChildren.findIndex((child) => child === lineWithEndNode)
 
       if (lineWithEndNodeIndex < lineWithStartNodeIndex) {
-        let tmp = null
-        tmp = lineWithStartNode
-        lineWithStartNode = lineWithEndNode
-        lineWithEndNode = tmp
-
-        tmp = lineWithStartNodeIndex
-        lineWithStartNodeIndex = lineWithEndNodeIndex
-        lineWithEndNodeIndex = tmp
-
-        tmp = startNode
-        startNode = endNode
-        endNode = tmp
-
-        tmp = startOffset
-        startOffset = endOffset
-        endOffset = tmp
+        let tmp = null; 
+        tmp = lineWithStartNode; lineWithStartNode = lineWithEndNode; lineWithEndNode = tmp
+        tmp = lineWithStartNodeIndex; lineWithStartNodeIndex = lineWithEndNodeIndex; lineWithEndNodeIndex = tmp
+        tmp = startNode; startNode = endNode; endNode = tmp
+        tmp = startOffset; startOffset = endOffset; endOffset = tmp;
       }
 
       let elementWithStartNode = null // 라인 DOM 바로 하위 자식(출발을 포함한)
       let elementWithEndNode = null // 라인 DOM 바로 하위 자식(끝을 포함한)
 
-      const getEndObjFn = (lineElement) => {
-        let endNode
-        let endOffset
-        let { childNodes } = lineElement
-
-        const _textChild = (childNodes) => {
-          const childNodesLen = childNodes.length
-
-          for (let i = childNodesLen - 1; i >= 0; i--) {
-            let childNode = childNodes[i]
-        debugger;
-            if (childNode.tagName === undefined && childNode.textContent !== '') {
-              endNode = childNode
-              endOffset = childNode.textContent.length
-              return true
-            } else {
-              let result = _textChild(childNode.childNodes)
-              if (result === true)
-                break
-            }
-          }
-        }
-
-        _textChild(childNodes)
-
-        return {
-          endNode,
-          endOffset,
-        }
-      }
-
-      const getStartObjFn = (lineElement) => {
-        let startNode
-        let { childNodes } = lineElement
-
-        const _textChild = (childNodes) => {
-          const childNodesLen = childNodes.length
-
-          for (let i = 0; i < childNodesLen; i++) {
-            let childNode = childNodes[i]
-        
-            if (childNode.tagName === undefined && childNode.textContent !== '') {
-              startNode = childNode
-              return true
-            } else {
-              let result = _textChild(childNode.childNodes)
-              if (result === true)
-                break
-            }
-          }
-        }
-
-        _textChild(childNodes)
-
-        return {
-          startNode,
-          startOffset: 0,
-        }
-      }
-
       let lineElement
+      let type
+      let rangeString
+      let isLast
+      let lineObj
       for (let i = 0; i < rangeStringSplitLen; i++) {
-        let lineObj
+        rangeString = rangeStringSplit[i]
 
         // 한줄일 경우
         if (rangeStringSplitLen - 1 === 0) {
           lineElement = lineWithStartNode
-
-          lineObj = {
-            lineElement,
-            startNode,
-            startOffset,
-            endNode,
-            endOffset,
-          }
+          type = selection.type
         } 
         // Range 가 다수의 줄로 구성되어 있을 경우
         else {
+          isLast = false
+          type = 'Range'
+
           // 첫 번째 줄일 경우
           if (i === 0) {
             lineElement = lineWithStartNode
 
-            const { endNode, endOffset } = getEndObjFn(lineElement)
-
-            lineObj = {
-              lineElement,
-              startNode,
-              startOffset,
-              endNode,
-              endOffset,
-            }
+            let endObj = _getEndObjFn(lineElement)
+            endNode = endObj.endNode
+            endOffset = endObj.endOffset
           }
           // 마지막 줄일 경우
           else if (i === rangeStringSplitLen - 1) {
             lineElement = lineWithEndNode
 
-            let { startNode, startOffset } = getStartObjFn(lineElement)
+            let startObj = _getStartObjFn(lineElement)
+            startNode = endObj.startNode
+            startOffset = endObj.startOffset
 
-            lineObj = {
-              lineElement,
-              startNode,
-              startOffset,
-              endNode,
-              endOffset,
-            }
           } 
           // 중간 줄일 경우
           else {
             lineElement = lineElement.nextElementSibling
-            let { startNode, startOffset } = getStartObjFn(lineElement)
-            const { endNode, endOffset } = getEndObjFn(lineElement)
 
-            lineObj = {
-              lineElement,
-              startNode,
-              startOffset,
-              endNode,
-              endOffset,
-            }
+            let startObj = _getStartObjFn(lineElement)
+            startNode = endObj.startNode
+            startOffset = endObj.startOffset
+
+            let endObj = _getEndObjFn(lineElement)
+            endNode = endObj.endNode
+            endOffset = endObj.endOffset
           }
         }
 
-        lineArr.push(lineObj)
+        lines.push({
+          lineElement,
+          type,
+          rangeString,
+          isLast,
+
+          startNode,
+          startOffset,
+          endNode,
+          endOffset,
+        })
       }
 
-      return ;
-
-      let tmp = startCaret
-      startCaret = startCaret > endCaret ? endCaret : startCaret
-      endCaret = tmp > endCaret ? tmp : endCaret
-
-      let result = {
-        type,
-        range,
-        selection,
-/*
-        startNode,
-        startOffset,
-        elementWithStartNode,
-        endOffset,
-        elementWithEndNode,
-        startCaret,
-        endCaret,
-*/
-        rangeString,
-        lineElement,
-        // isLast: lineElement.textContent.length === (startCaret > endCaret ? startCaret : endCaret),
-        // lineTextLength: lineElement.textContent.length
+      return {
+        lines
       }
-
-      return result
     }
   </script>
 </body>
