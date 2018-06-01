@@ -272,7 +272,8 @@
         if (childNode.tagName === undefined && childNode.textContent !== '') {
           if (isStart === true && caretIndex < tmpCaretIndex + childNode.textContent.length) {
             node = childNode
-            offset = tmpCaretIndex - caretIndex
+            // offset = tmpCaretIndex - caretIndex
+            offset = caretIndex - tmpCaretIndex
 
             return true
           } else if (isStart === false && caretIndex <= tmpCaretIndex + childNode.textContent.length) {
@@ -733,7 +734,9 @@
             newRange.surroundContents(document.createElement('span'))
             let parentNodeOuterHTML = startNodeParentNode.outerHTML
             parentNodeOuterHTML = parentNodeOuterHTML.replace('<span>', `</${lowerTagName}>`)
+            parentNodeOuterHTML = parentNodeOuterHTML.replace(`<${lowerTagName}></${lowerTagName}>`, '')
             parentNodeOuterHTML = parentNodeOuterHTML.replace('</span>', `<${lowerTagName}>`)
+            parentNodeOuterHTML = parentNodeOuterHTML.replace(`<${lowerTagName}></${lowerTagName}>`, '')
             startNodeParentNode.outerHTML = parentNodeOuterHTML
           } else {
             let childNodesHTML = ''
@@ -744,7 +747,6 @@
   
               childNodesHTML += nodeOuterHTML
             })
-  
             let tmpSpan = document.createElement('span')
             const extractRange = setRange(startNode, startOffset, endNode, endOffset)
             extractRange.extractContents()
