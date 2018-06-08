@@ -247,7 +247,6 @@
    */
   function getCaretByOffset(node, offset, editField) {
     let caretIndex = offset
-    let elementWithNode = node // 라인 DOM 바로 하위 자식(출발을 포함한)
     let tmpParentElement = node
     let lineElement
 
@@ -257,19 +256,28 @@
         break
       }
 
-      elementWithNode = tmpParentElement
       tmpParentElement = tmpParentElement.parentNode
     }
 
-    let prevElement = elementWithNode
-
-    for (;;) {
-      if (prevElement.previousSibling === null)
-        break
-
-      prevElement = prevElement.previousSibling
-      caretIndex += prevElement.textContent.length
+    let prevElement = node
+    if (node.textContent.length === node.parentNode.textContent.length) {
+      prevElement = node.parentNode
     }
+
+    const tmpFn = (tmpPrevElement) => {
+      for (;;) {
+        if (tmpPrevElement === lineElement || tmpPrevElement.previousSibling === null)
+          break
+  
+        tmpPrevElement = tmpPrevElement.previousSibling
+        caretIndex += tmpPrevElement.textContent.length
+      }
+
+      if (tmpPrevElement.parentNode !== lineElement && tmpPrevElement.parentNode !== editField)
+        tmpFn(tmpPrevElement.parentNode)
+    }
+
+    tmpFn(prevElement)
 
     return {
       caretIndex,
@@ -725,7 +733,7 @@
         return false
 
       const lowerTagName = tagName.toLowerCase()
-debugger
+
       let getStartCaret = getCaretByOffset(selection.anchorNode, selection.anchorOffset, editField)
       let startCaretIndex = getStartCaret.caretIndex
       let startCaretLineElement = getStartCaret.lineElement
@@ -855,7 +863,7 @@ debugger
           }
         }
       })
-
+debugger
       getStartCaret = getCaretByIndex(startCaretLineElement, startCaretIndex, true)
       const startCaretNode = getStartCaret.node
       const startCaretOffset = getStartCaret.offset
