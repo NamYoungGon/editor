@@ -296,7 +296,7 @@
     let offset
     let { childNodes } = lineElement
     let tmpCaretIndex = 0
-
+debugger
     const _textChildFn = (childNodes) => {
       if (offset) return true
 
@@ -308,7 +308,6 @@
         if (childNode.tagName === undefined && childNode.textContent !== '') {
           if (isStart === true && caretIndex < tmpCaretIndex + childNode.textContent.length) {
             node = childNode
-            // offset = tmpCaretIndex - caretIndex
             offset = caretIndex - tmpCaretIndex
 
             return true
@@ -863,13 +862,19 @@
           }
         }
       })
-debugger
+
       getStartCaret = getCaretByIndex(startCaretLineElement, startCaretIndex, true)
       const startCaretNode = getStartCaret.node
       const startCaretOffset = getStartCaret.offset
+      console.log('startCaretNode: ')
+      console.log(startCaretNode)
+      console.log('startCaretOffset: ' + startCaretOffset)
       getEndCaret = getCaretByIndex(endCaretLineElement, endCaretIndex, false)
       const endCaretNode = getEndCaret.node
       const endCaretOffset = getEndCaret.offset
+      console.log('endCaretNode: ')
+      console.log(endCaretNode)
+      console.log('endCaretOffset: ' + endCaretOffset)
  
       let tmpRange = setRange(startCaretNode, startCaretOffset, endCaretNode, endCaretOffset)
       selection.removeAllRanges()
