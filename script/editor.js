@@ -7,6 +7,34 @@
     return newRange
   }
 
+  function selectRange(node) {
+    let newRange = document.createRange()
+    newRange.selectNode(node)
+
+    return newRange
+  }
+
+  function tmpSpan(id) {
+    const span = document.createElement('span')
+    span.id = id || 'tmpspan'
+
+    return span
+  }
+
+/**
+ * 
+ * @param {DOM} node 대상 DOM
+ * @param {Boolean} isSelf 자신을 unWrap 할지에 대한 여부
+ */
+  function unWrap(node, isSelf) {
+    if (!isSelf) {
+      $(node).unwrap()
+    } else {
+      $(node).replaceWith(node.innerHTML)
+    }
+
+  }
+
   function getSelectionInfo(editField) {
     const selection = document.getSelection()
     const range = selection.getRangeAt(0)
@@ -65,8 +93,8 @@
         lineElement = lineWithStartNode
         type = selection.type
 
-        lineChildWithStartNode = _getLineChildWithNodeFn(startNode, editField)
-        lineChildWithEndNode = _getLineChildWithNodeFn(endNode, editField)
+        lineChildWithStartNode = getLineChildWithNodeFn(startNode, editField)
+        lineChildWithEndNode = getLineChildWithNodeFn(endNode, editField)
       } 
       // Range 가 다수의 줄로 구성되어 있을 경우
       else {
@@ -81,7 +109,7 @@
           endNode = endObj.endNode
           endOffset = endObj.endOffset
           lineChildWithEndNode = endObj.lineChildWithEndNode
-          lineChildWithStartNode = _getLineChildWithNodeFn(startNode, editField)
+          lineChildWithStartNode = getLineChildWithNodeFn(startNode, editField)
         }
         // 마지막 줄일 경우
         else if (i === rangeStringSplitLen - 1) {
@@ -93,7 +121,7 @@
           lineChildWithStartNode = startObj.lineChildWithStartNode
           endNode = initEndNode
           endOffset = initEndOffset
-          lineChildWithEndNode = _getLineChildWithNodeFn(endNode, editField)
+          lineChildWithEndNode = getLineChildWithNodeFn(endNode, editField)
         } 
         // 중간 줄일 경우
         else {
@@ -413,7 +441,7 @@
   /**
    *  해당 객체를 가지고 있는 라인의 자식을 반환
    */
-  function _getLineChildWithNodeFn(node, editField) {
+  function getLineChildWithNodeFn(node, editField) {
     let tmpParentElement = node
     let lineChildWithStartNode = null
     for (;;) {
@@ -428,7 +456,29 @@
 
     return lineChildWithStartNode
   }
-  
+
+  function isContainsTagName(lastElement, initElement, tagName) {
+    let result = false
+    let compareElement = initElement.parentNode
+
+    if (lastElement === initElement)
+      return result
+
+    for (;;) {
+      if (compareElement.tagName === tagName) {
+        result = true
+        break
+      }
+
+      if (lastElement === compareElement)
+        break
+
+      compareElement = compareElement.parentNode
+    }
+
+    return result
+  }
+
   function createCaretPlacer(atStart) {
     return function (el) {
       el.focus();
@@ -467,7 +517,7 @@
 
     _setElement: function (container) {
       const editField = container.querySelector('#edit-field');
-      editField.innerHTML = '<p><br/></p>';
+      // editField.innerHTML = '<p><br/></p>';
 
       this.el = {
         container,
@@ -632,7 +682,8 @@
         }
 
         if (startNode === endNode) {
-          if (lineChildWithStartNode.tagName !== tagName) {
+          // if (lineChildWithStartNode.tagName !== tagName) {
+          if (!isContainsTagName(lineChildWithStartNode, startNode, tagName)) {
             surroundRange = true
           } 
         } else {
@@ -674,7 +725,7 @@
         return false
 
       const lowerTagName = tagName.toLowerCase()
-
+debugger
       let getStartCaret = getCaretByOffset(selection.anchorNode, selection.anchorOffset, editField)
       let startCaretIndex = getStartCaret.caretIndex
       let startCaretLineElement = getStartCaret.lineElement
@@ -728,16 +779,56 @@
         } else {
         // 이미 감싸져 있는 경우 UnSurround
           if (lineChildWithStartNode === lineChildWithEndNode) {
-            const startNodeParentNode = startNode.parentNode
+            if (startNode.parentNode.tagName === tagName) {
+              const startNodeParentNode = startNode.parentNode
+              const newRange = setRange(startNode, startOffset, endNode, endOffset)
+              newRange.surroundContents(document.createElement('span'))
+              let parentNodeOuterHTML = startNodeParentNode.outerHTML
+              parentNodeOuterHTML = parentNodeOuterHTML.replace('<span>', `</${lowerTagName}>`)
+              parentNodeOuterHTML = parentNodeOuterHTML.replace(`<${lowerTagName}></${lowerTagName}>`, '')
+              parentNodeOuterHTML = parentNodeOuterHTML.replace('</span>', `<${lowerTagName}>`)
+              parentNodeOuterHTML = parentNodeOuterHTML.replace(`<${lowerTagName}></${lowerTagName}>`, '')
+              startNodeParentNode.outerHTML = parentNodeOuterHTML
+            } else {
+              const newRange = setRange(startNode, startOffset, endNode, endOffset)
+              newRange.surroundContents(tmpSpan('rangeWrap'))
 
-            const newRange = setRange(startNode, startOffset, endNode, endOffset)
-            newRange.surroundContents(document.createElement('span'))
-            let parentNodeOuterHTML = startNodeParentNode.outerHTML
-            parentNodeOuterHTML = parentNodeOuterHTML.replace('<span>', `</${lowerTagName}>`)
-            parentNodeOuterHTML = parentNodeOuterHTML.replace(`<${lowerTagName}></${lowerTagName}>`, '')
-            parentNodeOuterHTML = parentNodeOuterHTML.replace('</span>', `<${lowerTagName}>`)
-            parentNodeOuterHTML = parentNodeOuterHTML.replace(`<${lowerTagName}></${lowerTagName}>`, '')
-            startNodeParentNode.outerHTML = parentNodeOuterHTML
+              let cloneContents
+              let parentNode = startNode.parentNode
+              for (;;) {
+                if (parentNode.tagName === tagName) {
+                  let newRange = selectRange(parentNode)
+                  newRange.surroundContents(tmpSpan('tmpWrap'))
+                  cloneContents = newRange.cloneContents()
+                  break
+                }
+
+                parentNode = parentNode.parentNode
+              }
+
+              let wrapOuterHTML = cloneContents.firstChild.outerHTML
+              parentNode = cloneContents.getElementById('rangeWrap').parentNode
+              for (;;) {
+                let parentNodeTagName = parentNode.tagName.toLowerCase()
+                wrapOuterHTML = wrapOuterHTML.replace('<span id="rangeWrap">', `</${parentNodeTagName}><span id="rangeWrap">`)
+                wrapOuterHTML = wrapOuterHTML.replace('</span>', `</span><${parentNodeTagName}>`)
+                
+                if (parentNode.tagName === tagName) {
+                  break
+                }
+
+                wrapOuterHTML = wrapOuterHTML.replace('<span id="rangeWrap">', `<span id="rangeWrap"><${parentNodeTagName}>`)
+                wrapOuterHTML = wrapOuterHTML.replace('</span>', `</${parentNodeTagName}></span>`)
+
+                parentNode = parentNode.parentNode
+              }              
+
+              wrapOuterHTML = wrapOuterHTML.substring('<span id="tmpWrap">'.length, wrapOuterHTML.length - 7)
+              document.getElementById('tmpWrap').innerHTML = wrapOuterHTML
+
+              unWrap(document.getElementById('tmpWrap'), true)
+              unWrap(document.getElementById('rangeWrap'), true)
+            }
           } else {
             let childNodesHTML = ''
             surroundTarget.cloneChildNodes.forEach((node, i) => {
