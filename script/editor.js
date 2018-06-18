@@ -1,6 +1,19 @@
 (function (window, $) {
   function setRange(startNode, startOffset, endNode, endOffset){
     let newRange = document.createRange()
+
+    // if (startNode.tagName === undefined) {
+    //   if (startNode.textContent.length === startNode.parentNode.textContent.length) {
+    //     startNode = startNode.parentNode
+    //   }
+    // }
+
+    // if (endNode.tagName === undefined) {
+    //   if (endNode.textContent.length === endNode.parentNode.textContent.length) {
+    //     endNode = endNode.parentNode
+    //   }
+    // }
+
     newRange.setStart(startNode, startOffset)
     newRange.setEnd(endNode, endOffset)
 
@@ -294,9 +307,10 @@
   function getCaretByIndex(lineElement, caretIndex, isStart) {
     let node
     let offset
+     
     let { childNodes } = lineElement
     let tmpCaretIndex = 0
-debugger
+
     const _textChildFn = (childNodes) => {
       if (offset) return true
 
@@ -322,7 +336,7 @@ debugger
         } else {
           let result = _textChildFn(childNode.childNodes)
           if (result === true)
-            break
+            return true
         }
       }
     }
@@ -651,7 +665,7 @@ debugger
 
       const selectionInfo = getSelectionInfo(editField)
       const result = []
- 
+
       selectionInfo.forEach((info, i) => {
         const {
           lineElement,
@@ -667,12 +681,11 @@ debugger
         } = info
 
         let surround = []
-        let surroundRange = false
+        let willSurroundRange = false
         let unSurround = []
         let cloneChildNodes = null
         const _getSurroundTarget = (childNodes, tagName) => {
           let childNodesLen = childNodes.length
-        
           for (let i = 0; i < childNodesLen; i++) {
             let childNode = childNodes[i]
         
@@ -688,10 +701,13 @@ debugger
           }
         }
 
+        let isContainsStartNode = isContainsTagName(lineChildWithStartNode, startNode, tagName)
+        let isContainsEndNode = isContainsTagName(lineChildWithEndNode, endNode, tagName)
+
         if (startNode === endNode) {
           // if (lineChildWithStartNode.tagName !== tagName) {
-          if (!isContainsTagName(lineChildWithStartNode, startNode, tagName)) {
-            surroundRange = true
+          if (isContainsTagName(lineChildWithStartNode, startNode, tagName) === false) {
+            willSurroundRange = true
           } 
         } else {
           const newRange = setRange(startNode, startOffset, endNode, endOffset)
@@ -700,9 +716,13 @@ debugger
           _getSurroundTarget(childNodes, tagName)
         }
 
+        if (isContainsStartNode && isContainsEndNode) {
+          surround = []
+        }
+
         result.push({
           surround,
-          surroundRange,
+          willSurroundRange,
           unSurround,
           info,
           cloneChildNodes
@@ -725,6 +745,7 @@ debugger
         editField
       } = this.el;
 
+
       const selection = document.getSelection()
       let range = selection.getRangeAt(0)
       
@@ -745,7 +766,7 @@ debugger
 
       let totalIsSurrounded = true
       surroundTargets.forEach((surroundTarget) => {
-        if (surroundTarget.surroundRange || surroundTarget.surround.length > 0) {
+        if (surroundTarget.willSurroundRange || surroundTarget.surround.length > 0) {
           totalIsSurrounded = false
         }
       })
@@ -760,7 +781,7 @@ debugger
           lineChildWithEndNode
         } = surroundTarget.info
 
-        isSurrounded = (surroundTarget.surroundRange || surroundTarget.surround.length > 0) ? false : true
+        isSurrounded = (surroundTarget.willSurroundRange || surroundTarget.surround.length > 0) ? false : true
 
         console.log(`isSurrounded : ${isSurrounded}`)
 
@@ -769,7 +790,7 @@ debugger
 
         // 1개라도 감싸지지 않은 것이 있을 경우 Surround
         if (isSurrounded === false) {
-          if (surroundTarget.surroundRange === true) {
+          if (surroundTarget.willSurroundRange === true) {
             const newRange = setRange(startNode, startOffset, endNode, endOffset)
             newRange.surroundContents(document.createElement(tagName))
           } else {
