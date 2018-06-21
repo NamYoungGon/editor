@@ -1,4 +1,6 @@
 (function (window, $) {
+  let _d = document
+
   function setRange(startNode, startOffset, endNode, endOffset){
     let newRange = document.createRange()
 
@@ -34,11 +36,23 @@
     return span
   }
 
-/**
- * 
- * @param {DOM} node 대상 DOM
- * @param {Boolean} isSelf 자신을 unWrap 할지에 대한 여부
- */
+  function createElement(tagName, className) {
+    const element = document.createElement(tagName)
+
+    element.className = className
+
+    return element
+  }
+
+  function getClassStr(className) {
+    return `class="${className || ''}"`
+  }
+
+  /**
+   * 
+   * @param {DOM} node 대상 DOM
+   * @param {Boolean} isSelf 자신을 unWrap 할지에 대한 여부
+   */
   function unWrap(node, isSelf) {
     if (!isSelf) {
       $(node).unwrap()
@@ -82,7 +96,7 @@
       tmp = lineWithStartNode; lineWithStartNode = lineWithEndNode; lineWithEndNode = tmp
       tmp = lineWithStartNodeIndex; lineWithStartNodeIndex = lineWithEndNodeIndex; lineWithEndNodeIndex = tmp
       tmp = startNode; startNode = endNode; endNode = tmp
-      tmp = startOffset; startOffset = endOffset; endOffset = tmp;
+      tmp = startOffset; startOffset = endOffset; endOffset = tmp
     }
 
     let initStartNode = startNode
@@ -108,9 +122,8 @@
 
         lineChildWithStartNode = getLineChildWithNodeFn(startNode, editField)
         lineChildWithEndNode = getLineChildWithNodeFn(endNode, editField)
-      } 
+      } else {
       // Range 가 다수의 줄로 구성되어 있을 경우
-      else {
         isLast = false
         type = 'Range'
 
@@ -523,27 +536,79 @@
   const placeCaretAtStart = createCaretPlacer(true);
   const placeCaretAtEnd = createCaretPlacer(false);
 
-  function Editor(containerQuery) {
+  function Editor(containerQuery, config) {
     const container = document.querySelector(containerQuery);
 
-    this.init(container);
+    this.init(container, config);
   }
 
   Editor.prototype = {
-    init: function (container) {
-      this._setElement(container);
-
+    init: function (...arg) {
+      this._set(...arg);
+      this._createButtons()
       this._event();
     },
-
-    _setElement: function (container) {
+    
+    /**
+     * DOM 및 Config 정의
+     */
+    _set: function (container, config) {
       const editField = container.querySelector('#edit-field');
       // editField.innerHTML = '<p><br/></p>';
-
+      
       this.el = {
         container,
         editField
       };
+
+      this._initConfig = config;
+    },
+    
+    /**
+     * 사용자정의 버튼 생성
+     */
+    _createButtons: function () {
+      const { container } = this.el;
+      let { useTags } = this._initConfig;
+
+      const btnPnl = _d.createElement('div');
+      btnPnl.className = 'btn-pnl';
+
+      if (Array.isArray(useTags)) {
+        useTags.forEach((d, i) => {
+          let { tag, name, className, type } = d;
+
+          let element = _d.createElement('button');
+          element.type = 'button';
+          element.textContent = name;
+
+          btnPnl.appendChild(element);
+
+          element.addEventListener('mousedown', () => bindEvent.call(this, d));
+        })
+      }
+
+      container.prepend(btnPnl)
+
+      function bindEvent(d) {
+        const { type, tag } = d;
+
+        if (type === 'surround') {
+          surroundFn.call(this, d)
+        } else if (type === 'newLine') {
+          newLineFn.call(this, d)
+        }
+      }
+
+      function surroundFn(d) {
+        const { tag, className } = d;
+
+        this._surround(tag.toUpperCase(), className)
+      }
+
+      function newLineFn() {
+
+      }
     },
 
     _event: function () {
@@ -552,12 +617,6 @@
       } = this.el;
 
       editField.addEventListener('keypress', (e) => enterKey.call(this, e))
-      b.addEventListener('mousedown', () => bClick.call(this))
-      em.addEventListener('mousedown', () => emClick.call(this))
-      h2.addEventListener('mousedown', () => hClick.call(this, 'h2'))
-      h3.addEventListener('mousedown', () => hClick.call(this, 'h3'))
-      h4.addEventListener('mousedown', () => hClick.call(this, 'h4'))
-      pre.addEventListener('mousedown', () => preClick.call(this))
 
       function enterKey(e) {
         if (e.which !== 13 || e.shiftKey) return true
@@ -587,14 +646,6 @@
         return false
       }
 
-      function bClick() {
-        this._surround('B')
-      }
-
-      function emClick() {
-        this._surround('EM')
-      }
-      
       function hClick(name) {
         const {
           activeElement
@@ -736,7 +787,7 @@
 
     },
 
-    _surround: function (tagName) {
+    _surround: function (tagName, className) {
       const {
         activeElement
       } = document
@@ -792,12 +843,12 @@
         if (isSurrounded === false) {
           if (surroundTarget.willSurroundRange === true) {
             const newRange = setRange(startNode, startOffset, endNode, endOffset)
-            newRange.surroundContents(document.createElement(tagName))
+            newRange.surroundContents(createElement(tagName, className))
           } else {
             surroundTarget.surround.forEach((node, i) => {
               let newRange = document.createRange()
               newRange.selectNode(node)
-              newRange.surroundContents(document.createElement(tagName))
+              newRange.surroundContents(createElement(tagName, className))
             })
 
             const extractRange = setRange(startNode, startOffset, endNode, endOffset)
@@ -813,9 +864,9 @@
               newRange.surroundContents(document.createElement('span'))
               let parentNodeOuterHTML = startNodeParentNode.outerHTML
               parentNodeOuterHTML = parentNodeOuterHTML.replace('<span>', `</${lowerTagName}>`)
-              parentNodeOuterHTML = parentNodeOuterHTML.replace(`<${lowerTagName}></${lowerTagName}>`, '')
-              parentNodeOuterHTML = parentNodeOuterHTML.replace('</span>', `<${lowerTagName}>`)
-              parentNodeOuterHTML = parentNodeOuterHTML.replace(`<${lowerTagName}></${lowerTagName}>`, '')
+              parentNodeOuterHTML = parentNodeOuterHTML.replace(`<${lowerTagName} ${getClassStr(className)}></${lowerTagName}>`, '')
+              parentNodeOuterHTML = parentNodeOuterHTML.replace('</span>', `<${lowerTagName} ${getClassStr(className)}>`)
+              parentNodeOuterHTML = parentNodeOuterHTML.replace(`<${lowerTagName} ${getClassStr(className)}></${lowerTagName}>`, '')
               startNodeParentNode.outerHTML = parentNodeOuterHTML
             } else {
               const newRange = setRange(startNode, startOffset, endNode, endOffset)
@@ -861,7 +912,7 @@
             let childNodesHTML = ''
             surroundTarget.cloneChildNodes.forEach((node, i) => {
               let nodeOuterHTML = node.outerHTML
-              nodeOuterHTML = nodeOuterHTML.replace(`<${lowerTagName}>`, '')
+              nodeOuterHTML = nodeOuterHTML.replace(`<${lowerTagName} ${getClassStr(className)}>`, '')
               nodeOuterHTML = nodeOuterHTML.replace(`</${lowerTagName}>`, '')
   
               childNodesHTML += nodeOuterHTML
@@ -878,8 +929,6 @@
             tmpSpanOuterHTML = tmpSpanOuterHTML.replace('<span>', '')
             tmpSpanOuterHTML = tmpSpanOuterHTML.replace('</span>', '')
             tmpSpan.outerHTML = tmpSpanOuterHTML
-  
-            this._unSurroundContents(tagName)
           }
         }
       })
@@ -887,15 +936,9 @@
       getStartCaret = getCaretByIndex(startCaretLineElement, startCaretIndex, true)
       const startCaretNode = getStartCaret.node
       const startCaretOffset = getStartCaret.offset
-      console.log('startCaretNode: ')
-      console.log(startCaretNode)
-      console.log('startCaretOffset: ' + startCaretOffset)
       getEndCaret = getCaretByIndex(endCaretLineElement, endCaretIndex, false)
       const endCaretNode = getEndCaret.node
       const endCaretOffset = getEndCaret.offset
-      console.log('endCaretNode: ')
-      console.log(endCaretNode)
-      console.log('endCaretOffset: ' + endCaretOffset)
  
       let tmpRange = setRange(startCaretNode, startCaretOffset, endCaretNode, endCaretOffset)
       selection.removeAllRanges()

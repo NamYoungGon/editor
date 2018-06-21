@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Editor</title>
+  <link href="./../css/reset.css" rel="stylesheet" type="text/css" />
+  <link href="./../css/editor.css" rel="stylesheet" type="text/css" />
+  <style>
+    body {
+      /* background: green; */
+    }
+    p {
+      font-size: 24px;
+      letter-spacing: 2px;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+</head>
+<body>
+  <div id="editor" class="editor">
+    <div class="btn-pnl">
+      <button id="b">두껍게</button>
+      <button id="em">기울기</button>
+      <button id="h2">제목</button>
+      <button id="h3">중제목</button>
+      <button id="h4">소제목</button>
+      <button id="pre">코드</button>
+    </div>
+    <!-- <div id="edit-field" contentEditable><p><b>222<em>333333</em>222</b></p><p><b>222<em>333333</em>222</b></p></div> -->
+    <div id="edit-field" contentEditable><p>1111<b>2222</b>3333</p></div>
+    <!-- <div id="edit-field" contentEditable><p><br></p></div> -->
+    <div id="edit-field2"></div>
+  </div>
+  <script src="./../editor.js" ></script>
+  <script>
+
+    const config = {
+      
+    }
+    const editor = new Editor('#editor');
+
+  </script>
+</body>
+</html>
