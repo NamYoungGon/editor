@@ -242,7 +242,7 @@
     let tmp = startCaret
     startCaret = startCaret > endCaret ? endCaret : startCaret
     endCaret = tmp > endCaret ? tmp : endCaret
-
+// debugger
     let result = {
       type,
       range,
@@ -606,8 +606,10 @@
         this._surround(tag.toUpperCase(), className)
       }
 
-      function newLineFn() {
+      function newLineFn(d) {
+        const { tag, className } = d;
 
+        this._newLine(tag, className)
       }
     },
 
@@ -627,7 +629,7 @@
           range,
           lineElement
         } = getCaretInfo(editField)
-
+debugger
         if (!isLast) return true
 
         if (type === 'Range' && isLast) {
@@ -644,68 +646,6 @@
 
         e.preventDefault()
         return false
-      }
-
-      function hClick(name) {
-        const {
-          activeElement
-        } = document
-
-        if (activeElement === editField) {
-          const selection = document.getSelection()
-          const {
-            anchorNode,
-            type
-          } = selection
-          const anchorNodeType = anchorNode.nodeType
-
-          const h = document.createElement(name)
-          const br = document.createElement('br')
-          h.appendChild(br)
-
-          if (type === 'Caret') {
-            if (anchorNodeType === 1) {
-              activeElement.replaceChild(h, anchorNode)
-            }
-
-            setTimeout(function () {
-              activeElement.focus()
-            }, 0)
-          }
-        }
-      }
-
-      function preClick() {
-        const {
-          activeElement
-        } = document
-
-        if (activeElement !== editField) return false
-
-        const selection = document.getSelection()
-        const {
-          anchorNode,
-          type
-        } = selection
-        const anchorNodeType = anchorNode.nodeType
-
-        const p = document.createElement('p')
-        const pre = document.createElement('pre')
-        const code = document.createElement('code')
-        const br = document.createElement('br')
-        p.appendChild(pre)
-        pre.appendChild(code)
-        code.appendChild(br)
-
-        if (type === 'Caret') {
-          if (anchorNodeType === 1) {
-            activeElement.replaceChild(pre, anchorNode)
-          }
-
-          setTimeout(function () {
-            activeElement.focus()
-          }, 0)
-        }
       }
     },
 
@@ -943,6 +883,51 @@
       let tmpRange = setRange(startCaretNode, startCaretOffset, endCaretNode, endCaretOffset)
       selection.removeAllRanges()
       selection.addRange(tmpRange)
+    },
+
+    _newLine: function (tagName, className) {
+      const {
+        activeElement
+      } = document
+
+      const {
+        editField
+      } = this.el
+
+      if (activeElement !== editField) 
+        return false
+
+      const selection = document.getSelection()
+      const {
+        anchorNode,
+        type
+      } = selection
+      const anchorNodeType = anchorNode.nodeType
+      let tag
+
+      if (tagName === 'pre') {
+        tag = createElement('p')
+        const pre = createElement('pre')
+        const code = createElement('code')
+        const br = createElement('br')
+        tag.appendChild(pre)
+        pre.appendChild(code)
+        code.appendChild(br)
+      } else {
+        tag = createElement(tagName)
+        tag.appendChild(createElement('br'))
+      }
+
+
+      if (type === 'Caret') {
+        if (anchorNodeType === 1) {
+          activeElement.replaceChild(tag, anchorNode)
+        }
+
+        setTimeout(function () {
+          activeElement.focus()
+        }, 0)
+      }
     }
   };
 
